@@ -23,7 +23,7 @@ SERVER = (SERVER_HOST, ASSIGNED_PORT)
 
 # Timing/reliability parameters
 RTO = 0.5        # retransmission timeout (seconds)
-RETRIES = 5      # max retries per send
+RETRIES = 10      # max retries per send
 CHUNK = 200      # bytes per DATA chunk
 
 # --- Protocol type codes (1 byte) ---

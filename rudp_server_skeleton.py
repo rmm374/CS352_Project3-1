@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 """
-rudp_server_filled.py — Minimal Reliable UDP (RUDP) server (single-client, stop-and-wait).
-
-Implements:
-  1) 3-way handshake:  SYN -> (send) SYN-ACK -> (expect) ACK
-  2) DATA handling: in-order DATA(seq=n) -> (send) DATA-ACK(seq=n); keep expect_seq
-     - if out-of-order, re-ACK last in-order packet (expect_seq - 1)
-  3) Teardown: (expect) FIN -> (send) FIN-ACK -> reset state
+Minimal Reliable UDP (RUDP) server — single-client, stop-and-wait.
+- Prints exact rubric messages
+- Adds random 100–1000 ms delay before every DATA-ACK (incl. re-ACK)
 """
-import socket, struct
+import socket, struct, time, random
 
 # ===================== CONFIG (EDIT YOUR PORT) =====================
-ASSIGNED_PORT = 30077  # <-- replace with your assigned UDP port if needed
+ASSIGNED_PORT = 30077  # your assigned UDP port
 # ==================================================================
 
 # --- Protocol type codes (1 byte) ---
@@ -47,64 +43,65 @@ def main():
         if tp is None:
             continue
 
-        # ============ PHASE 1: HANDSHAKE ============
+        # ===== PHASE 1: HANDSHAKE =====
         if not established:
-            # Only accept packets from the first client that sends SYN
+            # Only accept the first client that sends SYN
             if tp == SYN and client_addr is None:
                 client_addr = addr
                 print('[SERVER] got SYN from', addr)
                 sock.sendto(pack_msg(SYN_ACK, 0), client_addr)
                 continue
-            # Complete handshake on ACK from the same client
-            if tp == ACK and client_addr == addr:
+            if tp == ACK and addr == client_addr:
                 established = True
                 expect_seq = 0
-                print('[SERVER] handshake complete with', client_addr)
+                print('[SERVER] Connection established')  # exact wording
                 continue
-            # Ignore anything else while not established
+            # Ignore everything else until established
             continue
-        # ============================================
+        # ==============================
 
-        # Ignore packets from other addresses once a client is set
+        # Ignore packets from other senders once a client is set
         if client_addr is not None and addr != client_addr:
-            # Silently ignore or print a note
             continue
 
-        # ============ PHASE 2: DATA =================
+        # ===== PHASE 2: DATA =====
         if tp == DATA:
+            # Random ACK delay BEFORE replying (required by spec)
+            delay_ms = random.randint(100, 1000)
+            time.sleep(delay_ms / 1000.0)
+
             if seq == expect_seq:
-                # "Deliver" payload (print as text)
+                # Deliver payload (print nicely)
                 try:
                     text = pl.decode('utf-8', errors='replace')
                 except Exception:
                     text = str(pl)
-                print(f'[SERVER] DATA seq={seq} len={len(pl)}')
+                print(f'[SERVER] DATA seq={seq} len={len(pl)} (delay={delay_ms}ms)')
                 if text:
-                    print(text, end='')  # payload may already contain newlines
-                # ACK the received seq and advance
+                    print(text, end='')
+                # ACK this seq and advance window
                 sock.sendto(pack_msg(DATA_ACK, seq), client_addr)
                 expect_seq += 1
             else:
-                # Out-of-order: re-ACK the last in-order seq (expect_seq - 1)
+                # Out-of-order: re-ACK last in-order
                 last_in_order = expect_seq - 1 if expect_seq > 0 else 0
-                print(f'[SERVER] out-of-order DATA seq={seq} (expect {expect_seq}); re-ACK {last_in_order}')
+                print(f'[SERVER] out-of-order DATA seq={seq} (expect {expect_seq}); '
+                      f're-ACK {last_in_order} (delay={delay_ms}ms)')
                 sock.sendto(pack_msg(DATA_ACK, last_in_order), client_addr)
             continue
-        # ============================================
+        # =========================
 
-        # ============ PHASE 3: TEARDOWN =============
+        # ===== PHASE 3: TEARDOWN =====
         if tp == FIN:
-            print('[SERVER] FIN received from', addr, '- closing')
+            print('[SERVER] FIN received from', addr)
             sock.sendto(pack_msg(FIN_ACK, 0), client_addr)
-            # Reset state to allow a new client
+            print('[SERVER] Connection closed')  # exact wording
+            # Reset to accept a new client
             established = False
             client_addr = None
             expect_seq = 0
-            print('[SERVER] connection reset; waiting for new client')
             continue
-        # ============================================
-
-        # Optional: ignore stray types (ACKs, etc.)
+        # =============================
 
 if __name__ == '__main__':
     main()
