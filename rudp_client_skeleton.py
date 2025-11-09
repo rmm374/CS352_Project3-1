@@ -17,13 +17,13 @@ import socket, struct, time
 
 # ===================== CONFIG (EDIT HOST/PORT) =====================
 SERVER_HOST = '127.0.0.1'   # server IP or hostname
-ASSIGNED_PORT = 30077       # <-- REPLACE with your assigned UDP port
+ASSIGNED_PORT = 30068       # <-- REPLACE with your assigned UDP port
 SERVER = (SERVER_HOST, ASSIGNED_PORT)
 # ==================================================================
 
 # Timing/reliability parameters
-RTO = 0.5        # retransmission timeout (seconds)
-RETRIES = 10      # max retries per send
+RTO = 0.7       # retransmission timeout (seconds)
+RETRIES = 20      # max retries per send
 CHUNK = 200      # bytes per DATA chunk
 
 # --- Protocol type codes (1 byte) ---
